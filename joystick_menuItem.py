@@ -21,7 +21,7 @@ try:
 except ImportError:
     sys.exit("Brak biblioteki smbus2. Zainstaluj: pip install smbus2")
 
-I2C_BUS = 1          # na RPi 3 jest to /dev/i2c-1 (piny 3 i 5)
+I2C_BUS = 3          # na RPi 3 jest to /dev/i2c-1 (piny 3 i 5)
 I2C_ADDRESS = 0x28   # musi się zgadzać z Arduino
 FRAME_SIZE = 5
 INTERVAL = 0.2       # sekundy
