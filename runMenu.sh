@@ -1,1 +1,1 @@
-python PyAppsRunner/PyAppsRunner/main.py
+python PyAppsRunner/main.py
