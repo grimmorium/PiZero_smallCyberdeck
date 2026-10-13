@@ -1,6 +1,6 @@
 sudo apt update
-sudo apt install i2c-tools
+sudo apt install i2c-tools python3-smbus
 
-sudo git clone https://github.com/grimmorium/PyAppsRunner.git
+
 
 
