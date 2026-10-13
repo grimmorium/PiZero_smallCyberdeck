@@ -4,3 +4,8 @@ sudo rm -rf PyAppsRunner
 sudo git clone https://github.com/grimmorium/PyAppsRunner.git
 cp PiZero_smallCyberdeck/refreshCyberdeck.sh refreshCyberdeck.sh
 sudo chmod +x refreshCyberdeck.sh
+
+sudo rm -rf PyAppsRunner/menu.xml
+sudo cp PiZero_smallCyberdeck/menu.xml PyAppsRunner
+sudo cp PiZero_smallCyberdeck/joystick_menuItem.py PyAppsRunner/scripts
+sudo cp PiZero_smallCyberdeck/joystick_test.py PyAppsRunner/scripts/tests
