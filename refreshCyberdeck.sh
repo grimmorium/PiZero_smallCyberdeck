@@ -8,4 +8,5 @@ sudo chmod +x refreshCyberdeck.sh
 sudo rm -f PyAppsRunner/menu.xml
 sudo cp PiZero_smallCyberdeck/menu.xml PyAppsRunner
 sudo cp PiZero_smallCyberdeck/joystick_menuItem.py PyAppsRunner/scripts
+sudo mkdir PyAppsRunner/scripts/tests
 sudo cp PiZero_smallCyberdeck/joystick_test.py PyAppsRunner/scripts/tests
