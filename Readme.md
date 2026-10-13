@@ -1,3 +1,3 @@
 sudo git clone https://github.com/grimmorium/PiZero_smallCyberdeck.git
-cp PiZero_smallCyberdeck/refreshDyberdeck.sh refreshDyberdeck.sh
+cp PiZero_smallCyberdeck/refreshCyberdeck.sh refreshCyberdeck.sh
 sudo chmod +x refreshDyberdeck.sh
