@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu title="Main menu">
-  <item name="Joystick read" dir="scripts" file="joystick_menuItem.py"/>
+  <item name="Joystick network" dir="scripts" file="joystick_net.py"/>
   <folder name="Tests">
     <item name="joystick_test" dir="scripts/tests" file="joystick_test.py"/>
+	<item name="Joystick read" dir="scripts" file="joystick_menuItem.py"/>
   </folder>
 </menu>
