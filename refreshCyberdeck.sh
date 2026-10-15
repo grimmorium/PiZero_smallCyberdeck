@@ -8,6 +8,9 @@ sudo chmod +x refreshCyberdeck.sh
 cp PiZero_smallCyberdeck/runMenu.sh runMenu.sh
 sudo chmod +x runMenu.sh
 
+cp PiZero_smallCyberdeck/network.sh network.sh
+sudo chmod +x network.sh
+
 sudo rm -f PyAppsRunner/menu.xml
 sudo cp PiZero_smallCyberdeck/menu.xml PyAppsRunner
 sudo cp PiZero_smallCyberdeck/joystick_menuItem.py PyAppsRunner/scripts
