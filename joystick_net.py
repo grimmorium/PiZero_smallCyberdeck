@@ -168,7 +168,7 @@ def main():
             while True:
                 try:
                     x, y, pressed = read_joystick(bus, cfg.i2c_address)
-                    speed, direction = to_command(x, y, cfg)
+                    speed, direction = to_command(y, x, cfg)
                 except OSError as e:
                     # brak odczytu z joysticka = bezpieczniej zatrzymać robota
                     print(f"Błąd I2C: {e}")
