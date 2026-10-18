@@ -15,6 +15,7 @@ sudo rm -f PyAppsRunner/menu.xml
 sudo cp PiZero_smallCyberdeck/menu.xml PyAppsRunner
 sudo cp PiZero_smallCyberdeck/joystick_menuItem.py PyAppsRunner/scripts
 sudo cp PiZero_smallCyberdeck/joystick_net.py PyAppsRunner/scripts
+sudo cp PiZero_smallCyberdeck/joystick_net_cam.py PyAppsRunner/scripts
 sudo cp PiZero_smallCyberdeck/rover_config.ini PyAppsRunner/scripts
 sudo mkdir PyAppsRunner/scripts/tests
 sudo cp PiZero_smallCyberdeck/joystick_test.py PyAppsRunner/scripts/tests
