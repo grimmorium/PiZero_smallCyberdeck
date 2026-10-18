@@ -19,3 +19,6 @@ sudo cp PiZero_smallCyberdeck/joystick_net_cam.py PyAppsRunner/scripts
 sudo cp PiZero_smallCyberdeck/rover_config.ini PyAppsRunner/scripts
 sudo mkdir PyAppsRunner/scripts/tests
 sudo cp PiZero_smallCyberdeck/joystick_test.py PyAppsRunner/scripts/tests
+
+sudo rm -rf /boot/firmware/config.txt
+sudo cp PiZero_smallCyberdeck/config.txt /boot/firmware/
