@@ -43,6 +43,11 @@ hdmi_cvt=480 320 60 1 0 0 0
 hdmi_group=2
 hdmi_mode=87
 
+enable_uart=1
+core_freq=250
+dtoverlay=miniuart-bt
+dtoverlay=spi1-2cs
+
 #dtoverlay=i2c-gpio
 
 
