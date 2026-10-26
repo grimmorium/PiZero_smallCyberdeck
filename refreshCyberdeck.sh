@@ -22,8 +22,9 @@ sudo cp PiZero_smallCyberdeck/joystick_test.py PyAppsRunner/scripts/tests
 
 sudo usermod -aG dialout $USER
 
-sudo apt install python3-pip
-sudo pip install pyserial
+#sudo apt install python3-pip
+#sudo pip install pyserial
+sudo apt-get install python3-serial
 
 sudo mkdir PyAppsRunner/scripts/GPS
 sudo cp PiZero_smallCyberdeck/gps_monitor.py PyAppsRunner/scripts/GPS
