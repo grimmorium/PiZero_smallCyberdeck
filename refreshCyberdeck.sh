@@ -33,3 +33,5 @@ sudo cp PiZero_smallCyberdeck/interfaces_config.xml PyAppsRunner/scripts/GPS
 
 sudo rm -rf /boot/firmware/config.txt
 sudo cp PiZero_smallCyberdeck/config.txt /boot/firmware/
+sudo rm -rf /boot/firmware/cmdline.txt
+sudo cp PiZero_smallCyberdeck/cmdline.txt /boot/firmware/
