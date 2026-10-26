@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Konfiguracja portów dla nrf24_spectrum.py.
+     Domyślnie SPI1 (aux), bo SPI0 zajmuje wyświetlacz LCD.
+     Wymaga w /boot/firmware/config.txt:  dtoverlay=spi1-1cs
+     Okablowanie (numery BCM / pin fizyczny):
+       SCK  -> GPIO21 (40)    MOSI -> GPIO20 (38)    MISO -> GPIO19 (35)
+       CSN  -> GPIO18 (12)  = bus 1, device 0
+       CE   -> GPIO22 (15)    VCC -> 3V3 (17) + kondensator 10 uF    GND -> (14)
+-->
+<spi_cfg>
+  <spi bus="1" device="0" speed_hz="4000000" mode="0"/>
+  <gpio chip="0" ce="22"/>
+  <!-- dwell_us: czas nasłuchu na kanale (min. ok. 130); sweeps: przejść na jedną klatkę;
+       data_rate: 250K | 1M | 2M -->
+  <scan channel_min="0" channel_max="125" dwell_us="170" sweeps="6" data_rate="2M"/>
+  <display height="12"/>
+</spi_cfg>

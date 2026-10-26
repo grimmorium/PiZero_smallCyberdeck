@@ -2,8 +2,11 @@
 <menu title="Main menu">
   <item name="Joystick network" dir="scripts" file="joystick_net.py"/>
   <item name="Joystick network camera" dir="scripts" file="joystick_net_cam.py"/>
-  <folder name="Tests">
+  <folder name="Joystick">
     <item name="joystick_test" dir="scripts/tests" file="joystick_test.py"/>
 	<item name="Joystick read" dir="scripts" file="joystick_menuItem.py"/>
+  </folder>
+  <folder name="GPS">
+    <item name="GPS_test" dir="scripts/GPS" file="gps_monitor.py"/>
   </folder>
 </menu>

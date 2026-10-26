@@ -46,7 +46,7 @@ hdmi_mode=87
 enable_uart=1
 core_freq=250
 dtoverlay=miniuart-bt
-dtoverlay=spi1-2cs
+dtoverlay=spi1-3cs
 
 #dtoverlay=i2c-gpio
 

@@ -20,5 +20,13 @@ sudo cp PiZero_smallCyberdeck/rover_config.ini PyAppsRunner/scripts
 sudo mkdir PyAppsRunner/scripts/tests
 sudo cp PiZero_smallCyberdeck/joystick_test.py PyAppsRunner/scripts/tests
 
+sudo usermod -aG dialout $USER
+sudo pip install pyserial
+
+sudo mkdir PyAppsRunner/scripts/GPS
+sudo cp PiZero_smallCyberdeck/gps_monitor.py PyAppsRunner/scripts/GPS
+sudo cp PiZero_smallCyberdeck/interfaces_config.py PyAppsRunner/scripts/GPS
+sudo cp PiZero_smallCyberdeck/interfaces_config.xml PyAppsRunner/scripts/GPS
+
 sudo rm -rf /boot/firmware/config.txt
 sudo cp PiZero_smallCyberdeck/config.txt /boot/firmware/
