@@ -34,16 +34,16 @@ git clone https://github.com/grimmorium/ILI9488RPIScript_RaspberryPi_Zero.git
 
 # Make the script executable and run it
 chmod +x ILI9488RPIScript_RaspberryPi_Zero/setup_ili9488.sh
-sudo reboot
-```
 
-```bash
 sudo ./ILI9488RPIScript_RaspberryPi_Zero/setup_ili9488.sh
-sudo reboot
-```
-
-
-```bash
 sudo ./PiZero_smallCyberdeck/config.sh
 sudo reboot
 ```
+
+```bash
+sudo ./refreshCyberdeck.sh
+sudo reboot
+```
+
+
+
