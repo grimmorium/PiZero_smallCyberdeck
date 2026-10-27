@@ -35,3 +35,5 @@ sudo rm -rf /boot/firmware/config.txt
 sudo cp PiZero_smallCyberdeck/config.txt /boot/firmware/
 sudo rm -rf /boot/firmware/cmdline.txt
 sudo cp PiZero_smallCyberdeck/cmdline.txt /boot/firmware/
+#sudo chmod 777 /boot/firmware/config.txt
+#sudo chmod 777 /boot/firmware/cmdline.txt
