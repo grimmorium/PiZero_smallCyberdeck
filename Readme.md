@@ -2,9 +2,12 @@ run
 ```bash
 sudo raspi-config
 ```
-and enable I2C, SPI
-and disable loging in via UART 
-and enable hardware serial/UART
+and enable SPI
+
+
+#enable I2C
+#and disable loging in via UART 
+#and enable hardware serial/UART
 
 
 
