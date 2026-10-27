@@ -20,9 +20,8 @@ sudo apt install -y git
 sudo git clone https://github.com/grimmorium/PiZero_smallCyberdeck.git
 cp PiZero_smallCyberdeck/refreshCyberdeck.sh refreshCyberdeck.sh
 sudo chmod +x refreshCyberdeck.sh
-sudo ./refreshCyberdeck.sh
+
 sudo chmod +x PiZero_smallCyberdeck/config.sh
-sudo ./PiZero_smallCyberdeck/config.sh
 
 # Clone the setup script repository
 git clone https://github.com/grimmorium/ILI9488RPIScript_RaspberryPi_Zero.git
@@ -32,5 +31,16 @@ git clone https://github.com/grimmorium/ILI9488RPIScript_RaspberryPi_Zero.git
 
 # Make the script executable and run it
 chmod +x ILI9488RPIScript_RaspberryPi_Zero/setup_ili9488.sh
+sudo reboot
+```
+
+```bash
 sudo ./ILI9488RPIScript_RaspberryPi_Zero/setup_ili9488.sh
+sudo reboot
+```
+
+
+```bash
+sudo ./PiZero_smallCyberdeck/config.sh
+sudo reboot
 ```
