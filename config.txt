@@ -44,7 +44,8 @@ hdmi_group=2
 hdmi_mode=87
 
 enable_uart=1
-core_freq=250
+core_freq=400
+core_freq_min=400
 dtoverlay=miniuart-bt
 dtoverlay=spi1-3cs
 
