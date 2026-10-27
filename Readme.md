@@ -9,17 +9,17 @@ and enable hardware serial/UART
 
 
 ```bash
+# Update and install git
+sudo apt update
+sudo apt install -y git
+#sudo apt-get install --reinstall libraspberrypi0 libraspberrypi-dev libraspberrypi-doc libraspberrypi-bin
+
 sudo git clone https://github.com/grimmorium/PiZero_smallCyberdeck.git
 cp PiZero_smallCyberdeck/refreshCyberdeck.sh refreshCyberdeck.sh
 sudo chmod +x refreshCyberdeck.sh
 sudo ./refreshCyberdeck.sh
 sudo chmod +x PiZero_smallCyberdeck/config.sh
 sudo ./PiZero_smallCyberdeck/config.sh
-
-# Update and install git
-sudo apt update
-sudo apt install -y git
-#sudo apt-get install --reinstall libraspberrypi0 libraspberrypi-dev libraspberrypi-doc libraspberrypi-bin
 
 # Clone the setup script repository
 git clone https://github.com/grimmorium/ILI9488RPIScript_RaspberryPi_Zero.git
