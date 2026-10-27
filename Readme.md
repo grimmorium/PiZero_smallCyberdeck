@@ -10,7 +10,9 @@ and enable SPI
 #and enable hardware serial/UART
 
 add in /etc/apt/sources.list
+```bash
 deb [ arch=armhf ] http://mirror.netcologne.de/raspbian/raspbian/ bookworm main contrib non-free rpi
+```
 
 ```bash
 # Update and install git
