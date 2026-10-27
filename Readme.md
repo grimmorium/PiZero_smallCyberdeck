@@ -53,6 +53,11 @@ sudo nano /boot/firmware/cmdline.txt
 sudo reboot
 ```
 
+add "i2c-dev"
+```bash
+sudo nano /etc/modules
+sudo reboot
+```
 
 
 
