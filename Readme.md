@@ -36,6 +36,9 @@ git clone https://github.com/grimmorium/ILI9488RPIScript_RaspberryPi_Zero.git
 chmod +x ILI9488RPIScript_RaspberryPi_Zero/setup_ili9488.sh
 
 sudo ./ILI9488RPIScript_RaspberryPi_Zero/setup_ili9488.sh
+```
+
+```bash
 sudo ./PiZero_smallCyberdeck/config.sh
 sudo reboot
 ```
