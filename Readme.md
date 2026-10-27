@@ -47,6 +47,12 @@ sudo reboot
 sudo ./refreshCyberdeck.sh
 sudo reboot
 ```
+remove "console=serial0,115200" from 
+```bash
+sudo nano /boot/firmware/cmdline.txt
+sudo reboot
+```
+
 
 
 
