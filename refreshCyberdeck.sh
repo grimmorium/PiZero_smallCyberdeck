@@ -24,6 +24,9 @@ sudo cp PiZero_smallCyberdeck/joystick_test.py PyAppsRunner/scripts/tests
 sudo mkdir PyAppsRunner/scripts/tools
 sudo cp PiZero_smallCyberdeck/UART_scanner.py PyAppsRunner/scripts/tools
 sudo cp PiZero_smallCyberdeck/spi_devices_test.py PyAppsRunner/scripts/tools
+sudo cp PiZero_smallCyberdeck/interfaces_config.py PyAppsRunner/scripts/tools
+sudo cp PiZero_smallCyberdeck/interfaces_config.xml PyAppsRunner/scripts/tools
+
 
 
 sudo usermod -aG dialout $USER
