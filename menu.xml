@@ -13,6 +13,7 @@
     <item name="GPS_test" dir="scripts/GPS" file="gps_monitor.py"/>
   </folder>
   <folder name="Tools">
-    <item name="Uart name" dir="scripts/tools" file="UART_scanner.py"/>
+    <item name="Uart scanner" dir="scripts/tools" file="UART_scanner.py"/>
+	<item name="SPI devices test" dir="scripts/tools" file="spi_devices_test.py"/>
   </folder>
 </menu>
