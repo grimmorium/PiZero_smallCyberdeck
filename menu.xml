@@ -12,6 +12,9 @@
   <folder name="GPS">
     <item name="GPS_test" dir="scripts/GPS" file="gps_monitor.py"/>
   </folder>
+  <folder name="RFID">
+    <item name="RFID read" dir="scripts/RFID" file="RFID_read.py"/>
+  </folder>
   <folder name="Tools">
     <item name="Uart scanner" dir="scripts/tools" file="UART_scanner.py"/>
 	<item name="SPI devices test" dir="scripts/tools" file="spi_devices_test.py"/>

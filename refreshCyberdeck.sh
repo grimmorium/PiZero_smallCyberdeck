@@ -27,13 +27,13 @@ sudo cp PiZero_smallCyberdeck/spi_devices_test.py PyAppsRunner/scripts/tools
 sudo cp PiZero_smallCyberdeck/interfaces_config.py PyAppsRunner/scripts/tools
 sudo cp PiZero_smallCyberdeck/interfaces_config.xml PyAppsRunner/scripts/tools
 
-
-
 sudo usermod -aG dialout $USER
 
 #sudo apt install python3-pip
 #sudo pip install pyserial
 sudo apt-get install python3-serial
+#pip install mfrc522 spidev rpi-lgpio
+sudo apt-get install python3-spidev python3-rpi-lgpio
 
 sudo mkdir PyAppsRunner/scripts/GPS
 sudo cp PiZero_smallCyberdeck/gps_monitor.py PyAppsRunner/scripts/GPS
@@ -43,6 +43,11 @@ sudo mkdir PyAppsRunner/scripts/NRF24
 sudo cp PiZero_smallCyberdeck/nrf24_spectrum.py PyAppsRunner/scripts/NRF24
 sudo cp PiZero_smallCyberdeck/interfaces_config.py PyAppsRunner/scripts/NRF24
 sudo cp PiZero_smallCyberdeck/interfaces_config.xml PyAppsRunner/scripts/NRF24
+
+sudo mkdir PyAppsRunner/scripts/RFID
+sudo cp PiZero_smallCyberdeck/RFID_read.py PyAppsRunner/scripts/RFID
+sudo cp PiZero_smallCyberdeck/interfaces_config.py PyAppsRunner/scripts/RFID
+sudo cp PiZero_smallCyberdeck/interfaces_config.xml PyAppsRunner/scripts/RFID
 
 sudo ls -la /boot/firmware
 
