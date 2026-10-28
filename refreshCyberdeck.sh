@@ -35,6 +35,10 @@ sudo mkdir PyAppsRunner/scripts/GPS
 sudo cp PiZero_smallCyberdeck/gps_monitor.py PyAppsRunner/scripts/GPS
 sudo cp PiZero_smallCyberdeck/interfaces_config.py PyAppsRunner/scripts/GPS
 sudo cp PiZero_smallCyberdeck/interfaces_config.xml PyAppsRunner/scripts/GPS
+sudo mkdir PyAppsRunner/scripts/NRF24
+sudo cp PiZero_smallCyberdeck/nrf24_spectrum.py PyAppsRunner/scripts/NRF24
+sudo cp PiZero_smallCyberdeck/interfaces_config.py PyAppsRunner/scripts/NRF24
+sudo cp PiZero_smallCyberdeck/interfaces_config.xml PyAppsRunner/scripts/NRF24
 
 sudo ls -la /boot/firmware
 

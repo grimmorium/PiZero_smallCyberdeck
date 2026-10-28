@@ -6,6 +6,9 @@
     <item name="joystick_test" dir="scripts/tests" file="joystick_test.py"/>
 	<item name="Joystick read" dir="scripts" file="joystick_menuItem.py"/>
   </folder>
+  <folder name="NRF24">
+    <item name="Spectrum" dir="scripts/NRF24" file="nrf24_spectrum.py"/>
+  </folder>
   <folder name="GPS">
     <item name="GPS_test" dir="scripts/GPS" file="gps_monitor.py"/>
   </folder>
