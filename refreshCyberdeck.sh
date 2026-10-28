@@ -49,7 +49,8 @@ sudo cp PiZero_smallCyberdeck/RFID_read.py PyAppsRunner/scripts/RFID
 sudo cp PiZero_smallCyberdeck/interfaces_config.py PyAppsRunner/scripts/RFID
 sudo cp PiZero_smallCyberdeck/interfaces_config.xml PyAppsRunner/scripts/RFID
 
-sudo ls -la /boot/firmware
+
+sudo cp PiZero_smallCyberdeck/interfaces_config.xml PyAppsRunner/
 
 sudo rm -rf /boot/firmware/config.txt
 sudo cp PiZero_smallCyberdeck/config.txt /boot/firmware/
@@ -58,5 +59,4 @@ sudo cp PiZero_smallCyberdeck/config.txt /boot/firmware/
 #sudo chmod 777 /boot/firmware/config.txt
 #sudo chmod 777 /boot/firmware/cmdline.txt
 
-sudo ls -la /boot/firmware
 
