@@ -12,8 +12,8 @@
   <folder name="GPS">
     <item name="GPS_test" dir="scripts/GPS" file="gps_monitor.py"/>
   </folder>
-  <folder name="RFID">
-    <item name="RFID read" dir="scripts/RFID" file="RFID_read.py"/>
+  <folder name="RFID PN532">
+    <item name="RFID read" dir="scripts/RFID" file="RFID_PN532_reader.py"/>
   </folder>
   <folder name="Tools">
     <item name="Uart scanner" dir="scripts/tools" file="UART_scanner.py"/>

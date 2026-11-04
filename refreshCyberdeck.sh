@@ -45,7 +45,7 @@ sudo cp PiZero_smallCyberdeck/interfaces_config.py PyAppsRunner/scripts/NRF24
 sudo cp PiZero_smallCyberdeck/interfaces_config.xml PyAppsRunner/scripts/NRF24
 
 sudo mkdir PyAppsRunner/scripts/RFID
-sudo cp PiZero_smallCyberdeck/RFID_read.py PyAppsRunner/scripts/RFID
+sudo cp PiZero_smallCyberdeck/RFID_PN532_reader.py PyAppsRunner/scripts/RFID
 sudo cp PiZero_smallCyberdeck/interfaces_config.py PyAppsRunner/scripts/RFID
 sudo cp PiZero_smallCyberdeck/interfaces_config.xml PyAppsRunner/scripts/RFID
 
