@@ -1,25 +1,25 @@
 #!/usr/bin/env python3
 """
-Sterowanie robotem joystickiem podłączonym przez Arduino (I2C) -> UDP
-+ podgląd obrazu z kamery robota (MJPEG po HTTP) na ekranie SPI (framebuffer).
+Rover control via a joystick connected through an Arduino (I2C) -> UDP,
+plus a live view of the rover camera (MJPEG over HTTP) on the SPI display (framebuffer).
 
-Ramka z Arduino (5 bajtów):
-  [0] X high, [1] X low, [2] Y high, [3] Y low, [4] przycisk (1 = puszczony, 0 = wciśnięty)
+Frame from the Arduino (5 bytes):
+  [0] X high, [1] X low, [2] Y high, [3] Y low, [4] button (1 = released, 0 = pressed)
 
-Do robota wysyłany jest datagram UDP w formacie "speed;direction" (tak samo jak w RoverGUI.py),
-wartości -100..100 w krokach co 5, wysyłane co [network] send_interval sekund.
+A UDP datagram in the format "speed;direction" is sent to the rover (same as in RoverGUI.py);
+values are -100..100 in steps of 5, sent every [network] send_interval seconds.
 
-Konfiguracja (IP, port, kalibracja joysticka, kamera) jest czytana z pliku rover_config.ini
-leżącego obok tego skryptu. Jeśli pliku nie ma, zostanie utworzony z wartościami domyślnymi.
+Configuration (IP, port, joystick calibration, camera) is read from the rover_config.ini file
+located next to this script. If it does not exist, a default one is created.
 
-Podgląd z kamery: ffmpeg dekoduje strumień i zapisuje go bezpośrednio do /dev/fb1.
-Gdy podgląd działa, skrypt nie wypisuje już bieżących wartości na konsolę (tekst
-nakładałby się na obraz).
+Camera preview: ffmpeg decodes the stream and writes it directly to /dev/fb1.
+While the preview is running, the script no longer prints current values to the console
+(the text would overlap the image).
 
-Wymagania:
-  sudo apt install python3-smbus ffmpeg      (lub: pip install smbus2)
+Requirements:
+  sudo apt install python3-smbus ffmpeg      (or: pip install smbus2)
   sudo raspi-config -> Interface Options -> I2C -> Enable
-  użytkownik musi należeć do grupy 'video' (zapis do /dev/fb1)
+  the user must be a member of the 'video' group (writing to /dev/fb1)
 """
 
 import configparser
@@ -46,31 +46,31 @@ DEFAULT_CONFIG = """\
 [network]
 ip = 192.168.1.74
 port = 12000
-# co ile sekund wysyłać dane do robota (w RoverGUI było 0.05)
+# how often (in seconds) to send data to the rover (RoverGUI used 0.05)
 send_interval = 0.05
 
 [i2c]
-# na RPi 3 domyślnie jest to /dev/i2c-1 (piny 3 i 5)
+# on RPi 3 this is /dev/i2c-1 by default (pins 3 and 5)
 bus = 3
-# musi się zgadzać z Arduino
+# must match the Arduino side
 address = 0x28
 
 [joystick]
-# wartość surowa odpowiadająca środkowi drążka i maksymalne wychylenie od środka
-# (dla 10-bitowego ADC Arduino: 512 / 512)
+# raw value corresponding to stick center and maximum deflection from center
+# (for the 10-bit Arduino ADC: 512 / 512)
 center_x = 512
 center_y = 512
 range = 512
-# martwa strefa w % wychylenia (eliminuje drgania wokół środka)
+# deadzone in % of deflection (removes jitter around center)
 deadzone = 5
-# odwrócenie osi, jeśli robot jedzie w złą stronę
+# invert axis if the rover drives the wrong way
 invert_speed = false
 invert_direction = false
-# dzielnik ograniczający prędkość (1, 2, 5, 10 - jak przyciski w RoverGUI)
+# speed limiter divider (1, 2, 5, 10 - like the buttons in RoverGUI)
 divider = 1
 
 [camera]
-# podgląd z kamery robota (MJPEG po HTTP) na ekranie SPI
+# live view of the rover camera (MJPEG over HTTP) on the SPI display
 enabled = true
 url = http://192.168.1.74:8081/stream
 framebuffer = /dev/fb1
@@ -90,8 +90,8 @@ def load_config(path=CONFIG_PATH):
         with open(path, "w", encoding="utf-8") as f:
             f.write(DEFAULT_CONFIG)
         raise ConfigError(
-            f"Nie znaleziono pliku konfiguracyjnego. Utworzono domyślny: {path}\n"
-            f"Uzupełnij adres IP i port, a następnie uruchom ponownie."
+            f"Configuration file not found. Created default: {path}\n"
+            "Fill in the IP address and port, then run again."
         )
 
     parser = configparser.ConfigParser(inline_comment_prefixes=("#",))
@@ -114,33 +114,33 @@ def load_config(path=CONFIG_PATH):
         cfg.invert_direction = parser.getboolean("joystick", "invert_direction", fallback=False)
         cfg.divider = parser.getfloat("joystick", "divider", fallback=1)
 
-        # sekcja [camera] jest opcjonalna - w starym pliku ini zadziałają wartości domyślne
+        # the [camera] section is optional - an old ini file will use the defaults
         cfg.camera_enabled = parser.getboolean("camera", "enabled", fallback=True)
         cfg.camera_url = parser.get(
             "camera", "url", fallback=f"http://{cfg.ip}:8081/stream").strip()
         cfg.framebuffer = parser.get("camera", "framebuffer", fallback="/dev/fb1").strip()
     except (configparser.Error, ValueError) as e:
-        raise ConfigError(f"Błąd w pliku konfiguracyjnym {path}: {e}")
+        raise ConfigError(f"Error in configuration file {path}: {e}")
 
     if not cfg.ip:
-        raise ConfigError("Pole [network] ip nie może być puste.")
+        raise ConfigError("[network] ip must not be empty.")
     if not (1 <= cfg.port <= 65535):
-        raise ConfigError("Pole [network] port musi być w zakresie 1-65535.")
+        raise ConfigError("[network] port must be in range 1-65535.")
     if cfg.send_interval <= 0:
-        raise ConfigError("Pole [network] send_interval musi być większe od 0.")
+        raise ConfigError("[network] send_interval must be greater than 0.")
     if cfg.range <= 0 or cfg.divider <= 0:
-        raise ConfigError("Pola [joystick] range i divider muszą być większe od 0.")
+        raise ConfigError("[joystick] range and divider must be greater than 0.")
 
     return cfg
 
 
 class VideoViewer:
     """
-    Wyświetla strumień wideo na framebufferze LCD.
+    Displays the video stream on the LCD framebuffer.
 
-    Dekodowanie i skalowanie robi ffmpeg (w C jest dużo szybszy niż Python na Zero W).
-    Gdy ffmpeg zakończy pracę (np. robot jeszcze nie działa lub zerwało się Wi-Fi),
-    jest uruchamiany ponownie po 2 sekundach.
+    Decoding and scaling are done by ffmpeg (C is much faster than Python on a Zero W).
+    If ffmpeg exits (e.g., the rover is not running yet or Wi-Fi dropped),
+    it is restarted after 2 seconds.
     """
 
     def __init__(self, url, fb_path):
@@ -160,19 +160,19 @@ class VideoViewer:
         return width, height, bpp
 
     def start(self):
-        """Zwraca None, gdy się udało, albo tekst z powodem niepowodzenia."""
+        """Returns None on success, otherwise a string with the failure reason."""
         if shutil.which("ffmpeg") is None:
-            return "brak ffmpeg (sudo apt install ffmpeg)"
+            return "ffmpeg not found (sudo apt install ffmpeg)"
         try:
             width, height, bpp = self._fb_size()
         except (OSError, ValueError):
-            return f"nie można odczytać parametrów {self.fb_path}"
+            return f"cannot read parameters of {self.fb_path}"
         if bpp != 16:
-            return f"{self.fb_path} ma {bpp} bpp, obsługiwane jest tylko 16 (RGB565)"
+            return f"{self.fb_path} is {bpp} bpp, only 16 (RGB565) is supported"
         if not os.access(self.fb_path, os.W_OK):
-            return f"brak prawa zapisu do {self.fb_path} (grupa 'video'?)"
+            return f"no write permission on {self.fb_path} (user in group 'video'?)"
 
-        # skalowanie z zachowaniem proporcji i czarnymi pasami
+        # scale keeping the aspect ratio with black letterbox bars
         vf = (f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
               f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2")
         cmd = ["ffmpeg", "-nostdin", "-loglevel", "error",
@@ -208,7 +208,7 @@ class VideoViewer:
 
 
 def read_joystick(bus, address):
-    """Odczytuje ramkę i zwraca (x, y, przycisk_wciśnięty)."""
+    """Reads a frame and returns (x, y, button_pressed)."""
     msg = i2c_msg.read(address, FRAME_SIZE)
     bus.i2c_rdwr(msg)
     data = list(msg)
@@ -220,7 +220,7 @@ def read_joystick(bus, address):
 
 
 def axis_to_percent(raw, center, rng, deadzone, invert):
-    """Surowa wartość osi -> -100..100 (z martwą strefą)."""
+    """Raw axis value -> -100..100 (with a dead zone)."""
     value = (raw - center) / rng * 100.0
     value = max(-100.0, min(100.0, value))
     if abs(value) < deadzone:
@@ -229,11 +229,11 @@ def axis_to_percent(raw, center, rng, deadzone, invert):
 
 
 def to_command(x, y, cfg):
-    """Przelicza odczyt joysticka na (speed, direction) - tak jak w RoverGUI."""
+    """Converts the joystick readout into (speed, direction) - same as in RoverGUI."""
     raw_speed = axis_to_percent(y, cfg.center_y, cfg.range, cfg.deadzone, cfg.invert_speed)
     raw_direction = axis_to_percent(x, cfg.center_x, cfg.range, cfg.deadzone, cfg.invert_direction)
 
-    # kwantyzacja do kroków co 5 i zastosowanie dzielnika (jak w TouchJoystickSquare)
+    # quantize to steps of 5 and apply the divider (like in TouchJoystickSquare)
     base_speed = round(raw_speed / 5.0) * 5.0
     base_direction = round(raw_direction / 5.0) * 5.0
     speed = int(base_speed / math.sqrt(cfg.divider))
@@ -246,30 +246,30 @@ def send_command(sock, cfg, speed, direction):
     try:
         sock.sendto(payload.encode("utf-8"), (cfg.ip, cfg.port))
     except OSError as e:
-        print(f"[BŁĄD TRANSMISJI]: {e}")
+        print(f"[TRANSMISSION ERROR]: {e}")
 
 
 def main():
     cfg = load_config()
 
     sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    print(f"[!] Transmisja UDP do {cfg.ip}:{cfg.port} co {cfg.send_interval} s "
-          f"(I2C 0x{cfg.i2c_address:02X}). Ctrl+C aby zakończyć.\n")
+    print(f"[!] UDP transmission to {cfg.ip}:{cfg.port} every {cfg.send_interval} s "
+          f"(I2C 0x{cfg.i2c_address:02X}). Press Ctrl+C to quit.\n")
 
     viewer = None
     if cfg.camera_enabled:
         viewer = VideoViewer(cfg.camera_url, cfg.framebuffer)
         error = viewer.start()
         if error:
-            print(f"[!] Podgląd z kamery wyłączony: {error}\n")
+            print(f"[!] Camera preview disabled: {error}\n")
             viewer = None
         else:
-            print(f"[!] Podgląd z kamery: {cfg.camera_url} -> {cfg.framebuffer} "
+            print(f"[!] Camera preview: {cfg.camera_url} -> {cfg.framebuffer} "
                   f"(log: {VIDEO_LOG_PATH})")
-            sys.stdout.write("\033[?25l")  # ukryj kursor konsoli
+            sys.stdout.write("\033[?25l")  # hide the console cursor
             sys.stdout.flush()
 
-    # przy włączonym podglądzie nie wypisujemy bieżących wartości - psułyby obraz
+    # with the preview enabled we don't print current values - they would corrupt the image
     verbose = viewer is None
 
     last = None
@@ -283,9 +283,9 @@ def main():
                     speed, direction = to_command(y, x, cfg)
                     i2c_error_shown = False
                 except OSError as e:
-                    # brak odczytu z joysticka = bezpieczniej zatrzymać robota
+                    # no joystick readout = safer to stop the rover
                     if not i2c_error_shown:
-                        print(f"Błąd I2C: {e}")
+                        print(f"I2C error: {e}")
                         i2c_error_shown = True
                     speed, direction = 0, 0
                     x = y = pressed = None
@@ -298,20 +298,20 @@ def main():
                         print(f"SPEED: {speed:4} | DIRECTION: {direction:4} | "
                               f"DIVIDER: {cfg.divider:g} | raw X: {x} Y: {y}")
 
-                # stała częstotliwość, bez dryfu czasu
+                # fixed rate, no time drift
                 next_time += cfg.send_interval
                 time.sleep(max(0, next_time - time.monotonic()))
     except KeyboardInterrupt:
-        print("\nZakończono.")
+        print("\nFinished.")
     finally:
-        # na koniec zatrzymaj robota (kilka razy - UDP nie gwarantuje dostarczenia)
+        # stop the rover at exit (several times - UDP does not guarantee delivery)
         for _ in range(3):
             send_command(sock, cfg, 0, 0)
             time.sleep(0.02)
         sock.close()
         if viewer:
             viewer.stop()
-            sys.stdout.write("\033[?25h")  # przywróć kursor
+            sys.stdout.write("\033[?25h")  # restore the cursor
             sys.stdout.flush()
 
 
@@ -319,7 +319,7 @@ def run(ctx):
     try:
         main()
     except ConfigError as e:
-        print(f"[BŁĄD KONFIGURACJI] {e}")
+        print(f"[CONFIGURATION ERROR] {e}")
     return None
 
 

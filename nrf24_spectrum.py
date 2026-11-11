@@ -1,33 +1,33 @@
-"""Analizator widma 2,4 GHz na nRF24L01(+) dla PyAppsRunner.
+"""2.4 GHz spectrum analyzer based on the nRF24L01(+), for PyAppsRunner.
 
-Kontrakt PyAppsRunner: funkcja run(ctx) na poziomie modułu, zwraca None/0 (sukces)
-lub int (błąd). Import modułu jest bez efektów ubocznych (biblioteki sprzętowe
-są importowane dopiero wewnątrz run()).
+PyAppsRunner contract: a module-level run(ctx) function returning None/0 (success)
+or an int (error code). Module import has no side effects (hardware libraries are
+imported inside run() only).
 
-Konfiguracja sprzętu jest czytana z pliku interfaces_config.xml (najpierw obok
-skryptu, potem w katalogu bazowym aplikacji) z elementu:
+Hardware configuration is read from the interfaces_config.xml file (next to the
+script first, then in the application base directory), from the element:
 
     <spi_device name="NRF24" type="radio" bus="1" device="1" speed_hz="4000000" mode="0">
         <pin name="CE"  gpio="23"/>
-        <pin name="IRQ" gpio="26"/>      <!-- nieużywany przez ten skrypt -->
+        <pin name="IRQ" gpio="26"/>      <!-- not used by this script -->
     </spi_device>
 
-Inne urządzenia w pliku (RC522, CC1101, GPS...) są ignorowane.
+Other devices in the file (RC522, CC1101, GPS...) are ignored.
 
-Opcjonalne atrybuty elementu <spi_device name="NRF24"> (jeśli brak - wartości domyślne):
-    gpio_chip    (0)    numer gpiochip dla lgpio
+Optional attributes of the <spi_device name="NRF24"> element (defaults when absent):
+    gpio_chip    (0)    gpiochip number for lgpio
     data_rate    (2M)   250K | 1M | 2M
     channel_min  (0)    0..125
     channel_max  (125)  0..125
-    dwell_us     (170)  130..2000, czas nasłuchu na kanale
-    sweeps       (6)    1..100, liczba przejść uśredniana na jedną klatkę
-    height       (12)   3..60, maksymalna wysokość wykresu w wierszach
+    dwell_us     (170)  130..2000, listen time per channel
+    sweeps       (6)    1..100, number of passes averaged into one frame
+    height       (12)   3..60, maximum chart height in rows
 
-Wymagane pakiety (Raspberry Pi OS Bookworm):
+Required packages (Raspberry Pi OS Bookworm):
     sudo apt install python3-spidev python3-lgpio
 
-Kody zwracane: 0 - OK / Ctrl+C, 2 - błąd konfiguracji, 3 - błąd sprzętu/SPI/GPIO,
-4 - brak wymaganej biblioteki.
+Return codes: 0 - OK / Ctrl+C, 2 - configuration error, 3 - hardware/SPI/GPIO error,
+4 - missing required library.
 """
 from __future__ import annotations
 
@@ -79,19 +79,19 @@ def _int(elem, attr, default, lo, hi):
     raw = elem.get(attr)
     if raw is None or raw.strip() == "":
         if default is None:
-            raise ConfigError(f"<{elem.tag}> wymaga atrybutu '{attr}'")
+            raise ConfigError(f"<{elem.tag}> requires attribute '{attr}'")
         return default
     try:
         val = int(raw.strip(), 0)
     except ValueError:
-        raise ConfigError(f"<{elem.tag} {attr}=\"{raw}\"> nie jest liczbą całkowitą")
+        raise ConfigError(f"<{elem.tag} {attr}=\"{raw}\"> is not an integer")
     if not lo <= val <= hi:
-        raise ConfigError(f"<{elem.tag} {attr}=\"{raw}\"> poza zakresem {lo}..{hi}")
+        raise ConfigError(f"<{elem.tag} {attr}=\"{raw}\"> out of range {lo}..{hi}")
     return val
 
 
 def _find_by_name(parent, tag, name):
-    """Pierwszy element <tag name="..."> (bez rozróżniania wielkości liter)."""
+    """First <tag name="..."> element (case-insensitive)."""
     for e in parent.findall(tag):
         if (e.get("name") or "").strip().upper() == name.upper():
             return e
@@ -102,23 +102,23 @@ def load_config(path: Path) -> Config:
     try:
         root = ET.parse(path).getroot()
     except ET.ParseError as e:
-        raise ConfigError(f"niepoprawny XML: {e}")
+        raise ConfigError(f"invalid XML: {e}")
     except OSError as e:
-        raise ConfigError(f"nie można odczytać pliku: {e}")
+        raise ConfigError(f"cannot read the file: {e}")
     if root.tag != "interfaces":
-        raise ConfigError(f"element główny musi być <interfaces>, jest <{root.tag}>")
+        raise ConfigError(f"the root element must be <interfaces>, got <{root.tag}>")
 
     dev = _find_by_name(root, "spi_device", DEVICE_NAME)
     if dev is None:
-        raise ConfigError(f"brak elementu <spi_device name=\"{DEVICE_NAME}\">")
+        raise ConfigError(f"missing element <spi_device name=\"{DEVICE_NAME}\">")
     ce = _find_by_name(dev, "pin", "CE")
     if ce is None:
-        raise ConfigError(f"<spi_device name=\"{DEVICE_NAME}\"> wymaga elementu "
+        raise ConfigError(f"<spi_device name=\"{DEVICE_NAME}\"> requires the element "
                           "<pin name=\"CE\" gpio=\"...\"/>")
 
     rate = (dev.get("data_rate") or "2M").strip().upper()
     if rate not in RF_SETUP_BY_RATE:
-        raise ConfigError(f"<spi_device data_rate=\"{rate}\"> - dozwolone: 250K, 1M, 2M")
+        raise ConfigError(f"<spi_device data_rate=\"{rate}\"> - allowed values: 250K, 1M, 2M")
 
     cfg = Config(
         spi_bus=_int(dev, "bus", None, 0, 6),
@@ -135,7 +135,7 @@ def load_config(path: Path) -> Config:
         height=_int(dev, "height", 12, 3, 60),
     )
     if cfg.ch_min > cfg.ch_max:
-        raise ConfigError("channel_min nie może być większe niż channel_max")
+        raise ConfigError("channel_min cannot be greater than channel_max")
     return cfg
 
 
@@ -144,7 +144,7 @@ def _find_cfg(ctx) -> Path:
         p = Path(d) / CFG_NAME
         if p.is_file():
             return p
-    return Path(ctx.script_dir) / CFG_NAME  # do komunikatu o błędzie
+    return Path(ctx.script_dir) / CFG_NAME  # only used in the error message
 
 
 # ------------------------------------------------------------------------- radio
@@ -164,12 +164,12 @@ class Radio:
         self.h = self._lgpio.gpiochip_open(c.gpio_chip)
         self._lgpio.gpio_claim_output(self.h, c.ce_pin, 0)
 
-        # test obecności układu: zapis/odczyt rejestru RF_CH
+        # presence test of the chip: write/read of the RF_CH register
         self.write(R_RF_CH, 0x2A)
         if self.read(R_RF_CH) != 0x2A:
-            raise OSError("nRF24 nie odpowiada (sprawdź okablowanie, CSN, zasilanie 3,3 V)")
+            raise OSError("nRF24 not responding (check wiring, CSN, 3.3 V power supply)")
 
-        self.write(R_EN_AA, 0x00)                      # bez auto-ACK
+        self.write(R_EN_AA, 0x00)                      # no auto-ACK
         self.write(R_SETUP_AW, 0x03)
         self.write(R_RF_SETUP, RF_SETUP_BY_RATE[c.data_rate])
         self.write(R_CONFIG, 0x03)                     # PWR_UP | PRIM_RX
@@ -200,7 +200,7 @@ class Radio:
                 self._lgpio.gpiochip_close(self.h)
 
     def sweep(self, acc):
-        """Jedno przejście po kanałach; acc[i] += 1, gdy RPD=1 na kanale ch_min+i."""
+        """One pass over the channels; acc[i] += 1 when RPD=1 on channel ch_min+i."""
         c = self.cfg
         xfer = self.spi.xfer2
         gw, h, ce = self._lgpio.gpio_write, self.h, c.ce_pin
@@ -264,14 +264,14 @@ def run(ctx):
     try:
         cfg = load_config(cfg_path)
     except ConfigError as e:
-        print(f"Błąd konfiguracji ({cfg_path}): {e}", file=sys.stderr)
+        print(f"Configuration error ({cfg_path}): {e}", file=sys.stderr)
         return 2
 
     try:
         import spidev
         import lgpio
     except ImportError as e:
-        print(f"Brak biblioteki: {e.name}. Zainstaluj: sudo apt install python3-spidev python3-lgpio",
+        print(f"Missing library: {e.name}. Install with: sudo apt install python3-spidev python3-lgpio",
               file=sys.stderr)
         return 4
 
@@ -279,22 +279,22 @@ def run(ctx):
     try:
         radio.open()
     except FileNotFoundError:
-        print(f"Brak /dev/spidev{cfg.spi_bus}.{cfg.spi_device}. Włącz SPI "
-              "(raspi-config; dla SPI1 dodaj dtoverlay=spi1-3cs w /boot/firmware/config.txt "
-              "i zrestartuj).", file=sys.stderr)
+        print(f"No /dev/spidev{cfg.spi_bus}.{cfg.spi_device}. Enable SPI "
+              "(raspi-config; for SPI1 add dtoverlay=spi1-3cs to /boot/firmware/config.txt "
+              "and reboot).", file=sys.stderr)
         radio.close()
         return 3
-    except Exception as e:  # PermissionError, błąd lgpio, brak układu
-        print(f"Błąd sprzętu: {e}", file=sys.stderr)
+    except Exception as e:  # PermissionError, lgpio error, chip not present
+        print(f"Hardware error: {e}", file=sys.stderr)
         radio.close()
         return 3
 
     n = cfg.ch_max - cfg.ch_min + 1
     peaks = [0.0] * n
-    print(f"Konfiguracja: {cfg_path}")
-    print(f"Analizator widma nRF24 (SPI{cfg.spi_bus}.{cfg.spi_device}, CE=GPIO{cfg.ce_pin}) "
-          "- Ctrl+C kończy.")
-    sys.stdout.write("\x1b[?1049h\x1b[?25l\x1b[2J")   # ekran alternatywny, bez kursora
+    print(f"Configuration: {cfg_path}")
+    print(f"nRF24 spectrum analyzer (SPI{cfg.spi_bus}.{cfg.spi_device}, CE=GPIO{cfg.ce_pin}) "
+          "- Ctrl+C quits.")
+    sys.stdout.write("\x1b[?1049h\x1b[?25l\x1b[2J")   # alternate screen, no cursor
     result = 0
     try:
         t_prev = time.perf_counter()
@@ -311,25 +311,25 @@ def run(ctx):
             t_prev = now
 
             top = max(range(n), key=vals.__getitem__)
-            info = (f"nRF24 {2400 + cfg.ch_min}-{2400 + cfg.ch_max} MHz | {fps:4.1f} przejść/s | "
-                    f"max: {2400 + cfg.ch_min + top} MHz ({vals[top] * 100:3.0f}%) | Ctrl+C=wyjście"
+            info = (f"nRF24 {2400 + cfg.ch_min}-{2400 + cfg.ch_max} MHz | {fps:4.1f} passes/s | "
+                    f"max: {2400 + cfg.ch_min + top} MHz ({vals[top] * 100:3.0f}%) | Ctrl+C=quit"
                     if vals[top] > 0 else
-                    f"nRF24 {2400 + cfg.ch_min}-{2400 + cfg.ch_max} MHz | {fps:4.1f} przejść/s | "
-                    "cisza | Ctrl+C=wyjście")
+                    f"nRF24 {2400 + cfg.ch_min}-{2400 + cfg.ch_max} MHz | {fps:4.1f} passes/s | "
+                    "quiet | Ctrl+C=quit")
             size = shutil.get_terminal_size((80, 24))
             sys.stdout.write(render(vals, peaks, cfg, size.columns, size.lines, info))
             sys.stdout.flush()
     except KeyboardInterrupt:
         result = 0
-    except Exception as e:                              # błąd SPI/GPIO w trakcie pracy
-        print_err = f"Błąd sprzętu w trakcie pomiaru: {e}"
+    except Exception as e:                              # SPI/GPIO error during operation
+        print_err = f"Hardware error during measurement: {e}"
         result = 3
     finally:
         sys.stdout.write(RESET + "\x1b[?25h\x1b[?1049l")
         sys.stdout.flush()
         radio.close()
     if result == 0:
-        print("Przerwano.")
+        print("Interrupted.")
     else:
         print(print_err, file=sys.stderr)
     return result

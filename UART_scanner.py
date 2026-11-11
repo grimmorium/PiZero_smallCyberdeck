@@ -1,11 +1,11 @@
-"""Skaner UART - nasłuch na liście prędkości (Raspberry Pi, GPIO14 = TXD, GPIO15 = RXD).
+"""UART scanner - listens on a list of baud rates (Raspberry Pi, GPIO14 = TXD, GPIO15 = RXD).
 
-Skrypt zgodny z kontraktem PyAppsRunner: def run(ctx) -> int | None.
-Import jest czysty (bez efektów ubocznych); pyserial ładowany jest dopiero w run().
+PyAppsRunner contract: def run(ctx) -> int | None.
+The import is clean (no side effects); pyserial is loaded only inside run().
 
-Wymagania:  pip install pyserial
-Port:       domyślnie /dev/serial0 (można wymusić zmienną środowiskową UART_PORT)
-Format:     8N1
+Requirements:  pip install pyserial
+Port:          /dev/serial0 by default (can be forced with the UART_PORT environment variable)
+Format:        8N1
 """
 import math
 import os
@@ -30,7 +30,7 @@ def _find_port():
 def _ask_seconds():
     while True:
         raw = input(
-            f"Czas nasłuchiwania na każdej prędkości w sekundach [{DEFAULT_SECONDS:g}]: "
+            f"Listening time per baud rate in seconds [{DEFAULT_SECONDS:g}]: "
         ).strip().replace(",", ".")
         if not raw:
             return DEFAULT_SECONDS
@@ -40,11 +40,11 @@ def _ask_seconds():
             value = 0.0
         if math.isfinite(value) and value > 0:
             return value
-        print("Podaj liczbę dodatnią (np. 10).")
+        print("Enter a positive number (e.g. 10).")
 
 
 def _render(data):
-    """Bajty -> tekst do wyświetlenia (znaki niedrukowalne jako \\xNN)."""
+    """Bytes -> text for display (non-printable characters as \\xNN)."""
     out = []
     for b in data:
         if b == 10:
@@ -63,8 +63,8 @@ def _printable_count(data):
 
 
 def _print_summary(stats):
-    print("\n=== Podsumowanie ===")
-    print(f"{'Prędkość':>9} | {'Bajty':>7} | {'Drukowalne':>10}")
+    print("\n=== Summary ===")
+    print(f"{'Baud rate':>9} | {'Bytes':>7} | {'Printable':>10}")
     for baud, total, printable in stats:
         ratio = f"{100 * printable / total:.0f}%" if total else "-"
         print(f"{baud:>9} | {total:>7} | {ratio:>10}")
@@ -72,26 +72,26 @@ def _print_summary(stats):
     if candidates:
         best = max(candidates, key=lambda s: (s[2] / s[1], s[1]))
         print(
-            f"\nNajwięcej czytelnego tekstu: {best[0]} baud "
-            "(heurystyka - dla protokołów binarnych ocena nie ma sensu)."
+            f"\nMost readable text at {best[0]} baud "
+            "(heuristic - the estimate is meaningless for binary protocols)."
         )
     else:
-        print("\nNie odebrano żadnych danych na żadnej z prędkości.")
+        print("\nNo data received on any of the baud rates.")
 
 
 def run(ctx):
     try:
         import serial  # pyserial
     except ImportError:
-        print("Brak biblioteki pyserial. Zainstaluj: pip install pyserial", file=sys.stderr)
+        print("Missing library pyserial. Install with: pip install pyserial", file=sys.stderr)
         return 1
 
     port = _find_port()
     if port is None:
         print(
-            "Nie znaleziono portu UART. Włącz sprzętowy port szeregowy "
+            "No UART port found. Enable the hardware serial port "
             "(raspi-config -> Interface Options -> Serial Port: "
-            "login shell = Nie, serial hardware = Tak) lub ustaw UART_PORT.",
+            "login shell = No, serial hardware = Yes) or set UART_PORT.",
             file=sys.stderr,
         )
         return 1
@@ -99,18 +99,18 @@ def run(ctx):
     try:
         seconds = _ask_seconds()
     except (KeyboardInterrupt, EOFError):
-        print("\nPrzerwano.")
+        print("\nInterrupted.")
         return 0
 
-    print(f"Port: {port}, format 8N1, {seconds:g} s na prędkość.")
-    print("Ctrl+C przerywa skanowanie.")
+    print(f"Port: {port}, format 8N1, {seconds:g} s per baud rate.")
+    print("Ctrl+C stops the scan.")
 
     stats = []
     try:
         ser = serial.Serial(port, BAUD_RATES[0], bytesize=8, parity="N", stopbits=1, timeout=0.1)
     except (serial.SerialException, OSError) as exc:
-        print(f"Nie można otworzyć {port}: {exc}", file=sys.stderr)
-        print("Sprawdź uprawnienia (grupa 'dialout') i czy port nie jest zajęty.", file=sys.stderr)
+        print(f"Cannot open {port}: {exc}", file=sys.stderr)
+        print("Check permissions (the 'dialout' group) and whether the port is busy.", file=sys.stderr)
         return 1
 
     try:
@@ -131,11 +131,11 @@ def run(ctx):
                     sys.stdout.flush()
             finally:
                 stats.append((baud, total, printable))
-                print(f"\n[{baud}: odebrano {total} B]")
+                print(f"\n[{baud}: received {total} B]")
     except KeyboardInterrupt:
-        print("\nPrzerwano.")
+        print("\nInterrupted.")
     except (serial.SerialException, OSError) as exc:
-        print(f"\nBłąd portu szeregowego: {exc}", file=sys.stderr)
+        print(f"\nSerial port error: {exc}", file=sys.stderr)
         return 1
     finally:
         ser.close()

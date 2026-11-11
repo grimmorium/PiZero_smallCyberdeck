@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Konfiguracja interfejsów Raspberry Pi Zero W.
+  Raspberry Pi Zero W interface configuration.
   SPI1 (overlay spi1-3cs): bus="1", device 0/1/2 = CE0(GPIO18)/CE1(GPIO17)/CE2(GPIO16)
-  Numery w <pin gpio="..."> to numeracja BCM (GPIO), nie numery fizyczne pinów.
+  The numbers in <pin gpio="..."> use the BCM (GPIO) numbering, not the physical pin numbers.
 -->
 <interfaces>
 
@@ -20,7 +20,7 @@
     <pin name="GDO2" gpio="12"/>
   </spi_device>
 
-  <!-- GPIO14 (TXD) / GPIO15 (RXD); /dev/serial0 wskazuje na PL011 dzięki miniuart-bt -->
+  <!-- GPIO14 (TXD) / GPIO15 (RXD); thanks to the miniuart-bt overlay, /dev/serial0 points to the PL011 -->
   <uart_device name="GPS" type="gps" port="/dev/serial0" baudrate="9600" timeout="0.5"/>
 
 </interfaces>

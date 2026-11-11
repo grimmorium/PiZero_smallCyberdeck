@@ -1,70 +1,70 @@
-"""Czytnik RFID PN532 po I2C (Raspberry Pi Zero W) - skrypt dla PyAppsRunner.
+"""RFID reader PN532 over I2C (Raspberry Pi Zero W) - script for PyAppsRunner.
 
-Kontrakt PyAppsRunner: funkcja run(ctx) -> int | None na poziomie modułu.
-Import jest czysty (żadnych efektów ubocznych); sprzęt otwierany jest dopiero w run().
+PyAppsRunner contract: a module-level run(ctx) -> int | None function.
+The import is clean (no side effects); the hardware is opened only inside run().
 
-Tylko biblioteka standardowa: komunikacja przez /dev/i2c-N (os + fcntl),
-bez smbus / Adafruit CircuitPython.
+Standard library only: communication through /dev/i2c-N (os + fcntl),
+without smbus / Adafruit CircuitPython.
 
-Po wykryciu karty skrypt próbuje odczytać z niej jak najwięcej danych:
-  * MIFARE Classic (Mini/1K/4K) - pełny zrzut sektorów, autoryzacja domyślnymi
-    kluczami fabrycznymi (FFFFFFFFFFFF, A0A1A2A3A4A5, D3F7D3F7D3F7, 000000000000);
-    sektory chronione innym kluczem zostaną pominięte z odpowiednim komunikatem;
-  * MIFARE Ultralight / NTAG - odczyt wszystkich stron pamięci oraz próba
-    wyłuskania z nich tekstu zapisanego jako rekord NDEF "Text".
+After detecting a card, the script tries to read as much data from it as possible:
+  * MIFARE Classic (Mini/1K/4K) - full sector dump, authentication with the default
+    factory keys (FFFFFFFFFFFF, A0A1A2A3A4A5, D3F7D3F7D3F7, 000000000000);
+    sectors protected by another key are skipped with a corresponding message;
+  * MIFARE Ultralight / NTAG - readout of all memory pages plus an attempt to
+    extract text stored as an NDEF "Text" record.
 
-Wymagania na Raspberry Pi:
-  * włączony I2C (sudo raspi-config -> Interface Options -> I2C),
-  * użytkownik w grupie i2c (sudo usermod -aG i2c $USER, potem ponowne logowanie),
-  * moduł PN532 przełączony w tryb I2C (przełączniki/zworki na płytce).
-Weryfikacja:  sudo i2cdetect -y 3   -> w tabeli powinno być "24" (hex, czyli 0x24).
+Requirements on the Raspberry Pi:
+  * I2C enabled (sudo raspi-config -> Interface Options -> I2C),
+  * user in the i2c group (sudo usermod -aG i2c $USER, then log in again),
+  * PN532 module switched to I2C mode (switches/jumpers on the board).
+Verification:  sudo i2cdetect -y 3   -> "24" should appear in the table (hex, i.e. 0x24).
 """
 import os
 import time
 from collections import namedtuple
 
-# ---------------------------------------------------------------- konfiguracja
-I2C_BUS = 3                # /dev/i2c-3 (piny GPIO5 = SDA, GPIO6 = SCL)
-PN532_ADDRESS = 0x24       # i2cdetect pokazuje adresy szesnastkowo: "24" = 0x24
-POLL_PAUSE = 0.15          # przerwa między odpytaniami o kartę [s]
-ABSENT_POLLS_TO_RESET = 2  # tyle pustych odpytań = karta zdjęta
-ULTRALIGHT_MAX_PAGES = 231  # z zapasem pokrywa NTAG213/215/216 i Ultralight
+# ---------------------------------------------------------------- configuration
+I2C_BUS = 3                # /dev/i2c-3 (pins GPIO5 = SDA, GPIO6 = SCL)
+PN532_ADDRESS = 0x24       # i2cdetect shows addresses in hex: "24" = 0x24
+POLL_PAUSE = 0.15          # pause between card polls [s]
+ABSENT_POLLS_TO_RESET = 2  # this many empty polls = card removed
+ULTRALIGHT_MAX_PAGES = 231  # with margin, covers NTAG213/215/216 and Ultralight
 
-# ------------------------------------------------------------------- stałe I2C
-# I2C_SLAVE to numer żądania ioctl() zdefiniowany w nagłówku jądra Linuksa
-# <linux/i2c-dev.h>. Plik /dev/i2c-N sam w sobie nie "wie", z którym układem
-# na magistrali chcemy rozmawiać - jedna magistrala obsługuje wiele urządzeń
-# pod różnymi adresami 7-bitowymi. Wywołanie:
+# ------------------------------------------------------------------- I2C constants
+# I2C_SLAVE is the ioctl() request number defined in the Linux kernel header
+# <linux/i2c-dev.h>. The /dev/i2c-N file itself does not "know" which chip on
+# the bus we want to talk to - one bus serves many devices under different
+# 7-bit addresses. The call:
 #     fcntl.ioctl(fd, I2C_SLAVE, 0x24)
-# mówi sterownikowi jądra: "dla tego deskryptora pliku wszystkie kolejne
-# os.read()/os.write() mają być kierowane do urządzenia o adresie 0x24".
-# Od tego momentu zwykłe read/write na fd działają tak, jakby były rozmową
-# wyłącznie z PN532 - nie trzeba już przekazywać adresu przy każdej operacji
-# (inaczej niż np. w bibliotece smbus, gdzie adres podaje się przy każdym
-# wywołaniu). Istnieje też I2C_SLAVE_FORCE (ten sam cel), które ustawia adres
-# nawet gdy jakiś sterownik jądra już go "zajął" - tu nie jest potrzebne.
+# tells the kernel driver: "for this file descriptor, all subsequent
+# os.read()/os.write() calls must be directed to the device at address 0x24".
+# From that point on, plain read/write on fd behave as if they were a conversation
+# exclusively with the PN532 - there is no need to pass the address for every
+# operation (unlike e.g. in the smbus library, where the address is given at each
+# call). There is also I2C_SLAVE_FORCE (same purpose), which sets the address even
+# if some kernel driver has already "claimed" it - not needed here.
 I2C_SLAVE = 0x0703
 
-# ------------------------------------------------------------ komendy PN532
+# ------------------------------------------------------------ PN532 commands
 CMD_GET_FIRMWARE_VERSION = 0x02
 CMD_SAM_CONFIGURATION = 0x14
 CMD_RF_CONFIGURATION = 0x32
 CMD_IN_LIST_PASSIVE_TARGET = 0x4A
 CMD_IN_DATA_EXCHANGE = 0x40
 
-# komendy wysyłane do samej karty przez InDataExchange
+# commands sent to the card itself via InDataExchange
 CARD_CMD_READ = 0x30
 CARD_CMD_AUTH_KEY_A = 0x60
 CARD_CMD_AUTH_KEY_B = 0x61
 
 ACK_FRAME = b"\x00\x00\xff\x00\xff\x00"
 
-# najpopularniejsze klucze fabryczne/domyślne MIFARE Classic
+# the most popular factory/default MIFARE Classic keys
 DEFAULT_KEYS = (
-    bytes.fromhex("FFFFFFFFFFFF"),  # klucz fabryczny (większość pustych kart)
-    bytes.fromhex("A0A1A2A3A4A5"),  # typowy klucz MAD / NDEF (NFC Forum)
-    bytes.fromhex("D3F7D3F7D3F7"),  # typowy klucz B dla sektorów NDEF
-    bytes.fromhex("000000000000"),  # czasem spotykany klucz "wyzerowany"
+    bytes.fromhex("FFFFFFFFFFFF"),  # factory key (most blank cards)
+    bytes.fromhex("A0A1A2A3A4A5"),  # typical MAD / NDEF key (NFC Forum)
+    bytes.fromhex("D3F7D3F7D3F7"),  # typical key B for NDEF sectors
+    bytes.fromhex("000000000000"),  # sometimes seen "zeroed" key
 )
 
 Tag = namedtuple("Tag", "uid atqa sak tg")
@@ -76,25 +76,25 @@ SAK_NAMES = {
     0x10: "MIFARE Plus 2K",
     0x11: "MIFARE Plus 4K",
     0x18: "MIFARE Classic 4K",
-    0x20: "ISO14443-4 (np. DESFire, karta zbliżeniowa)",
-    0x28: "ISO14443-4 + MIFARE Classic 1K (np. SmartMX/JCOP)",
-    0x88: "MIFARE Classic 1K (wariant SAK)",
+    0x20: "ISO14443-4 (e.g. DESFire, contactless card)",
+    0x28: "ISO14443-4 + MIFARE Classic 1K (e.g. SmartMX/JCOP)",
+    0x88: "MIFARE Classic 1K (SAK variant)",
 }
 
 
 class PN532Error(Exception):
-    """Błąd komunikacji z PN532."""
+    """Communication error with the PN532."""
 
 
 class PN532I2C:
-    """Minimalny sterownik PN532 po I2C (ramki normalne, tryb ISO14443A)."""
+    """Minimal PN532 driver over I2C (normal frames, ISO14443A mode)."""
 
     def __init__(self, bus, address):
-        import fcntl  # import lokalnie: moduł pozostaje importowalny także na Windows
+        import fcntl  # local import: the module stays importable on Windows too
 
         self._fd = os.open("/dev/i2c-%d" % bus, os.O_RDWR)
         try:
-            # patrz komentarz przy stałej I2C_SLAVE powyżej
+            # see the comment at the I2C_SLAVE constant above
             fcntl.ioctl(self._fd, I2C_SLAVE, address)
         except OSError:
             os.close(self._fd)
@@ -106,17 +106,17 @@ class PN532I2C:
             os.close(self._fd)
             self._fd = None
 
-    # ------------------------------------------------------------ niski poziom
+    # ------------------------------------------------------------ low level
     def _write(self, data):
         last_error = None
-        for _ in range(10):  # PN532 potrafi NACK-ować, gdy jest zajęty
+        for _ in range(10):  # the PN532 may NACK when it is busy
             try:
                 os.write(self._fd, data)
                 return
             except OSError as exc:
                 last_error = exc
                 time.sleep(0.02)
-        raise PN532Error("Zapis I2C nie powiódł się: %s" % last_error)
+        raise PN532Error("I2C write failed: %s" % last_error)
 
     def _read_ready_flag(self):
         try:
@@ -135,16 +135,16 @@ class PN532I2C:
             time.sleep(0.005)
 
     def _read_frame(self, size):
-        """Czyta bajt statusu + size bajtów; zwraca same dane (bez statusu)."""
+        """Reads the status byte + size bytes; returns only the data (without the status)."""
         try:
             raw = os.read(self._fd, size + 1)
         except OSError as exc:
-            raise PN532Error("Odczyt I2C nie powiódł się: %s" % exc)
+            raise PN532Error("I2C read failed: %s" % exc)
         if not raw or not (raw[0] & 0x01):
-            raise PN532Error("Moduł nie jest gotowy do odczytu")
+            raise PN532Error("The module is not ready to be read")
         return raw[1:]
 
-    # ------------------------------------------------------------ ramki
+    # ------------------------------------------------------------ frames
     @staticmethod
     def _build_frame(command, params):
         data = bytes([0xD4, command]) + bytes(params)
@@ -159,67 +159,67 @@ class PN532I2C:
     def _parse_response(raw, command):
         start = raw.find(b"\x00\x00\xff")
         if start < 0 or len(raw) < start + 6:
-            raise PN532Error("Nieprawidłowa ramka odpowiedzi: %s" % raw.hex())
+            raise PN532Error("Malformed response frame: %s" % raw.hex())
         length = raw[start + 3]
         if (length + raw[start + 4]) & 0xFF:
-            raise PN532Error("Błędna suma kontrolna długości ramki")
+            raise PN532Error("Bad checksum of the frame length")
         if length == 1:
-            raise PN532Error("PN532 zgłosił błąd aplikacyjny (ramka błędu)")
+            raise PN532Error("The PN532 reported an application error (error frame)")
         end = start + 5 + length
         if len(raw) < end + 1:
-            raise PN532Error("Ramka odpowiedzi ucięta")
+            raise PN532Error("Response frame truncated")
         data = raw[start + 5:end]
         if (sum(data) + raw[end]) & 0xFF:
-            raise PN532Error("Błędna suma kontrolna danych")
+            raise PN532Error("Bad checksum of the data")
         if data[0] != 0xD5 or data[1] != command + 1:
-            raise PN532Error("Nieoczekiwana odpowiedź: %s" % data.hex())
+            raise PN532Error("Unexpected response: %s" % data.hex())
         return bytes(data[2:])
 
     def call(self, command, params=b"", timeout=1.0, response_size=32):
-        """Wysyła komendę, sprawdza ACK i zwraca dane odpowiedzi (bez D5 xx)."""
+        """Sends a command, checks the ACK and returns the response data (without D5 xx)."""
         self._write(self._build_frame(command, params))
         if not self._wait_ready(0.5):
-            raise PN532Error("Brak ACK od PN532 (sprawdź okablowanie i tryb I2C)")
+            raise PN532Error("No ACK from the PN532 (check wiring and I2C mode)")
         ack = self._read_frame(len(ACK_FRAME))
         if ack != ACK_FRAME:
-            raise PN532Error("Nieprawidłowe ACK: %s" % ack.hex())
+            raise PN532Error("Invalid ACK: %s" % ack.hex())
         if not self._wait_ready(timeout):
-            raise PN532Error("Przekroczono czas oczekiwania na odpowiedź")
+            raise PN532Error("Timed out waiting for a response")
         return self._parse_response(self._read_frame(response_size), command)
 
-    # ------------------------------------------------------------ wysoki poziom
+    # ------------------------------------------------------------ high level
     def firmware_version(self):
         data = self.call(CMD_GET_FIRMWARE_VERSION)
         if len(data) < 4:
-            raise PN532Error("Za krótka odpowiedź GetFirmwareVersion")
+            raise PN532Error("GetFirmwareVersion response too short")
         return data[0], data[1], data[2], data[3]  # IC, Ver, Rev, Support
 
     def sam_configuration(self):
-        # tryb normalny, timeout 1 s (0x14 * 50 ms), linia IRQ włączona
+        # normal mode, 1 s timeout (0x14 * 50 ms), IRQ line enabled
         self.call(CMD_SAM_CONFIGURATION, b"\x01\x14\x01")
 
     def set_passive_activation_retries(self, retries):
-        # domyślnie 0xFF = czekaj w nieskończoność; skończona liczba prób
-        # sprawia, że InListPassiveTarget wraca, gdy nie ma karty
+        # the default is 0xFF = wait forever; a finite retry count makes
+        # InListPassiveTarget return when no card is present
         self.call(CMD_RF_CONFIGURATION, bytes([0x05, 0xFF, 0x01, retries]))
 
     def read_passive_target(self, timeout=1.0):
-        """Zwraca Tag (ISO14443A 106 kbps) albo None, gdy brak karty w polu."""
+        """Returns a Tag (ISO14443A 106 kbps), or None when no card is in the field."""
         data = self.call(
             CMD_IN_LIST_PASSIVE_TARGET, b"\x01\x00", timeout=timeout, response_size=40
         )
         if not data or data[0] == 0:
             return None
         if len(data) < 6:
-            raise PN532Error("Za krótka odpowiedź InListPassiveTarget")
+            raise PN532Error("InListPassiveTarget response too short")
         tg = data[1]
         uid_len = data[5]
         uid = bytes(data[6:6 + uid_len])
         if len(uid) != uid_len:
-            raise PN532Error("Ucięty identyfikator UID")
+            raise PN532Error("Truncated UID")
         return Tag(uid=uid, atqa=bytes(data[2:4]), sak=data[4], tg=tg)
 
-    # -------------------------------------------------- InDataExchange (karta)
+    # -------------------------------------------------- InDataExchange (card)
     def mifare_authenticate(self, tg, block, uid, key, key_type=CARD_CMD_AUTH_KEY_A):
         params = bytes([tg, key_type, block]) + key + uid[-4:]
         data = self.call(CMD_IN_DATA_EXCHANGE, params, response_size=16)
@@ -241,8 +241,8 @@ def format_uid(uid):
 # ---------------------------------------------------------- MIFARE Classic
 
 def classic_sector_layout(sak):
-    """Zwraca listę (nr_sektora, liczba_bloków_w_sektorze) albo None, gdy
-    SAK nie odpowiada znanemu układowi MIFARE Classic."""
+    """Returns a list of (sector_number, blocks_per_sector), or None when the
+    SAK does not match a known MIFARE Classic layout."""
     if sak == 0x09:                 # Mini, 0.3K
         return [(s, 4) for s in range(5)]
     if sak in (0x08, 0x88):         # Classic 1K
@@ -253,7 +253,7 @@ def classic_sector_layout(sak):
 
 
 def try_authenticate_sector(reader, tg, trailer_block, uid):
-    """Próbuje domyślnych kluczy (najpierw A, potem B) na danym sektorze."""
+    """Tries the default keys (A first, then B) on the given sector."""
     for key_type in (CARD_CMD_AUTH_KEY_A, CARD_CMD_AUTH_KEY_B):
         for key in DEFAULT_KEYS:
             if reader.mifare_authenticate(tg, trailer_block, uid, key, key_type):
@@ -262,35 +262,35 @@ def try_authenticate_sector(reader, tg, trailer_block, uid):
 
 
 def dump_mifare_classic(reader, tag):
-    """Odczytuje wszystkie dostępne sektory kluczami domyślnymi i wypisuje
-    zawartość blok po bloku. Zwraca słownik {nr_bloku: 16 bajtów}."""
+    """Reads all accessible sectors with the default keys and prints the contents
+    block by block. Returns a dict {block_number: 16 bytes}."""
     layout = classic_sector_layout(tag.sak)
     if layout is None:
-        print("  Nieznany układ sektorów dla SAK 0x%02X - pomijam pełny odczyt." % tag.sak)
+        print("  Unknown sector layout for SAK 0x%02X - skipping the full readout." % tag.sak)
         return {}
 
-    print("  Pełny zrzut MIFARE Classic (%d sektorów, domyślne klucze)..." % len(layout))
+    print("  Full dump of MIFARE Classic (%d sectors, default keys)..." % len(layout))
     dump = {}
     abs_block = 0
     for sector_index, blocks_in_sector in layout:
         trailer_block = abs_block + blocks_in_sector - 1
         key_type, key = try_authenticate_sector(reader, tag.tg, trailer_block, tag.uid)
         if key is None:
-            print("  Sektor %2d: brak dostępu (żaden z domyślnych kluczy nie pasuje)" % sector_index)
+            print("  Sector %2d: no access (none of the default keys matched)" % sector_index)
             abs_block += blocks_in_sector
             continue
 
         key_label = "A" if key_type == CARD_CMD_AUTH_KEY_A else "B"
-        print("  Sektor %2d (klucz %s = %s):" % (sector_index, key_label, key.hex().upper()))
+        print("  Sector %2d (key %s = %s):" % (sector_index, key_label, key.hex().upper()))
         for b in range(blocks_in_sector):
             block_num = abs_block + b
             data = reader.mifare_read_block(tag.tg, block_num)
             tag_label = " [trailer]" if b == blocks_in_sector - 1 else ""
             if data is None:
-                print("    Blok %3d%s: <błąd odczytu>" % (block_num, tag_label))
+                print("    Block %3d%s: <read error>" % (block_num, tag_label))
                 continue
             dump[block_num] = data
-            print("    Blok %3d%s: %s" % (block_num, tag_label, data.hex().upper()))
+            print("    Block %3d%s: %s" % (block_num, tag_label, data.hex().upper()))
         abs_block += blocks_in_sector
     return dump
 
@@ -298,9 +298,9 @@ def dump_mifare_classic(reader, tag):
 # ----------------------------------------------- MIFARE Ultralight / NTAG
 
 def dump_ultralight(reader, tag, max_pages=ULTRALIGHT_MAX_PAGES):
-    """Czyta po 4 strony (16 B) na komendę READ, aż napotka błąd / limit.
-    Zwraca słownik {nr_strony: 4 bajty}."""
-    print("  Odczyt pamięci Ultralight/NTAG (strony po 4 B)...")
+    """Reads 4 pages (16 bytes) per READ command until an error/limit is hit.
+    Returns a dict {page_number: 4 bytes}."""
+    print("  Reading the Ultralight/NTAG memory (pages of 4 bytes)...")
     pages = {}
     page = 0
     while page < max_pages:
@@ -310,7 +310,7 @@ def dump_ultralight(reader, tag, max_pages=ULTRALIGHT_MAX_PAGES):
             response_size=20,
         )
         if not data or data[0] != 0x00 or len(data) < 17:
-            # pierwszy błąd zwykle oznacza koniec pamięci użytkownika - koniec odczytu
+            # the first error usually means the end of user memory - stop reading
             break
         chunk = data[1:17]
         for i in range(4):
@@ -319,18 +319,18 @@ def dump_ultralight(reader, tag, max_pages=ULTRALIGHT_MAX_PAGES):
                 break
             page_bytes = chunk[i * 4:(i + 1) * 4]
             pages[p] = page_bytes
-            print("    Strona %3d: %s" % (p, page_bytes.hex().upper()))
+            print("    Page %3d: %s" % (p, page_bytes.hex().upper()))
         page += 4
 
     text = extract_ndef_text(pages)
     if text is not None:
-        print("  --> Odczytany tekst NDEF: %r" % text)
+        print("  --> NDEF text read: %r" % text)
     return pages
 
 
 def extract_ndef_text(pages):
-    """Najprostsza próba znalezienia rekordu NDEF typu Text w danych
-    użytkownika (strony od 4. wzwyż). Zwraca tekst albo None."""
+    """A simple attempt to find an NDEF 'Text' record in the user data
+    (pages from 4 onwards). Returns the text or None."""
     if not pages:
         return None
     max_page = max(pages)
@@ -341,19 +341,19 @@ def extract_ndef_text(pages):
     i = 0
     while i + 1 < len(buf):
         tlv_type = buf[i]
-        if tlv_type == 0x00:      # NULL TLV - wypełnienie
+        if tlv_type == 0x00:      # NULL TLV - padding
             i += 1
             continue
-        if tlv_type == 0xFE:      # terminator pamięci NDEF
+        if tlv_type == 0xFE:      # end-of-memory marker for NDEF
             break
         length = buf[i + 1]
         value_start = i + 2
-        if length == 0xFF:        # format długi (rzadki na małych tagach)
+        if length == 0xFF:        # long form (rare on small tags)
             if i + 3 >= len(buf):
                 break
             length = (buf[i + 2] << 8) | buf[i + 3]
             value_start = i + 4
-        if tlv_type == 0x03:      # wiadomość NDEF
+        if tlv_type == 0x03:      # NDEF message
             text = parse_ndef_text_record(bytes(buf[value_start:value_start + length]))
             if text is not None:
                 return text
@@ -362,7 +362,7 @@ def extract_ndef_text(pages):
 
 
 def parse_ndef_text_record(ndef):
-    """Rozpakowuje pierwszy krótki rekord NDEF typu 'T' (Text)."""
+    """Unpacks the first short NDEF record of type 'T' (Text)."""
     if len(ndef) < 3:
         return None
     header = ndef[0]
@@ -389,44 +389,44 @@ def parse_ndef_text_record(ndef):
 
 
 def dump_tag_data(reader, tag):
-    """Dobiera właściwą procedurę odczytu na podstawie SAK."""
+    """Picks the right readout procedure based on the SAK."""
     try:
         if tag.sak == 0x00:
             dump_ultralight(reader, tag)
         elif tag.sak in (0x08, 0x09, 0x18, 0x88):
             dump_mifare_classic(reader, tag)
         else:
-            print("  Pełny odczyt danych nieobsługiwany dla tego typu karty (SAK 0x%02X)." % tag.sak)
+            print("  Full data readout is not supported for this card type (SAK 0x%02X)." % tag.sak)
     except PN532Error as exc:
-        print("  Przerwano odczyt danych: %s" % exc)
+        print("  Data readout aborted: %s" % exc)
 
 
 def run(ctx):
-    print("=== Czytnik RFID PN532 (I2C, bus %d, adres 0x%02X) ===" % (I2C_BUS, PN532_ADDRESS))
+    print("=== RFID reader PN532 (I2C, bus %d, address 0x%02X) ===" % (I2C_BUS, PN532_ADDRESS))
 
     try:
         reader = PN532I2C(I2C_BUS, PN532_ADDRESS)
     except ImportError:
-        print("Ten skrypt wymaga Linuksa (moduł fcntl / urządzenie /dev/i2c-N).")
+        print("This script requires Linux (fcntl module / /dev/i2c-N device).")
         return 1
     except FileNotFoundError:
-        print("Brak /dev/i2c-%d - włącz I2C: sudo raspi-config -> Interface Options -> I2C." % I2C_BUS)
+        print("/dev/i2c-%d not found - enable I2C: sudo raspi-config -> Interface Options -> I2C." % I2C_BUS)
         return 1
     except PermissionError:
-        print("Brak uprawnień do /dev/i2c-%d - dodaj użytkownika do grupy i2c:" % I2C_BUS)
-        print("  sudo usermod -aG i2c $USER   (i zaloguj się ponownie)")
+        print("No permission on /dev/i2c-%d - add the user to the i2c group:" % I2C_BUS)
+        print("  sudo usermod -aG i2c $USER   (and log in again)")
         return 1
     except OSError as exc:
-        print("Nie można otworzyć magistrali I2C: %s" % exc)
+        print("Cannot open the I2C bus: %s" % exc)
         return 1
 
     try:
         ic, ver, rev, _support = reader.firmware_version()
-        print("Wykryto PN5%02X, firmware %d.%d" % (ic, ver, rev))
+        print("Detected PN5%02X, firmware %d.%d" % (ic, ver, rev))
         reader.sam_configuration()
         reader.set_passive_activation_retries(0x02)
 
-        print("Przyłóż kartę/brelok do czytnika. Ctrl+C kończy.\n")
+        print("Hold a card/key fob to the reader. Ctrl+C quits.\n")
         last_uid = None
         absent = 0
         errors = 0
@@ -437,20 +437,20 @@ def run(ctx):
             except PN532Error as exc:
                 errors += 1
                 if errors >= 5:
-                    raise PN532Error("Zbyt wiele błędów z rzędu, ostatni: %s" % exc)
+                    raise PN532Error("Too many consecutive errors, last one: %s" % exc)
                 time.sleep(0.2)
                 continue
 
             if tag is None:
                 absent += 1
                 if absent >= ABSENT_POLLS_TO_RESET and last_uid is not None:
-                    print("Karta zdjęta.\n")
+                    print("Card removed.\n")
                     last_uid = None
             else:
                 absent = 0
                 if tag.uid != last_uid:
                     last_uid = tag.uid
-                    kind = SAK_NAMES.get(tag.sak, "nieznany typ")
+                    kind = SAK_NAMES.get(tag.sak, "unknown type")
                     print("UID: %s  (%d B)" % (format_uid(tag.uid), len(tag.uid)))
                     print("  ATQA: %s  SAK: 0x%02X  -> %s" % (tag.atqa.hex().upper(), tag.sak, kind))
                     dump_tag_data(reader, tag)
@@ -458,10 +458,10 @@ def run(ctx):
             time.sleep(POLL_PAUSE)
 
     except KeyboardInterrupt:
-        print("\nZakończono odczyt.")
+        print("\nReading stopped.")
         return 0
     except PN532Error as exc:
-        print("Błąd PN532: %s" % exc)
+        print("PN532 error: %s" % exc)
         return 2
     finally:
         reader.close()

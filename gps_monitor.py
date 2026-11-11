@@ -1,8 +1,8 @@
-"""Podgląd danych z modułu GPS NEO-6M przez UART (PyAppsRunner: def run(ctx)).
+"""Live view of data from a GPS NEO-6M module over UART (PyAppsRunner: def run(ctx)).
 
-Parametry portu (port, baudrate) pochodzą z interfaces_config.xml (urządzenie UART "GPS").
-Wymaga: pip install pyserial
-Ctrl+C - powrót do menu.
+Port parameters (port, baudrate) come from interfaces_config.xml (UART device "GPS").
+Requires: pip install pyserial
+Ctrl+C - back to the menu.
 """
 from __future__ import annotations
 
@@ -17,8 +17,8 @@ GPS_NAME = "GPS"
 REDRAW_INTERVAL = 0.5
 NO_DATA_WARNING_AFTER = 3.0
 
-FIX_QUALITY = {0: "brak", 1: "GPS", 2: "DGPS", 3: "PPS", 4: "RTK", 5: "RTK float", 6: "estymowana"}
-FIX_MODE = {1: "brak", 2: "2D", 3: "3D"}
+FIX_QUALITY = {0: "none", 1: "GPS", 2: "DGPS", 3: "PPS", 4: "RTK", 5: "RTK float", 6: "estimated"}
+FIX_MODE = {1: "none", 2: "2D", 3: "3D"}
 
 
 # ---------------------------------------------------------------- NMEA
@@ -83,14 +83,14 @@ class GpsState:
         self.fix_mode = None
         self.speed_kmh = None
         self.course = None
-        self.sats_in_view = {}       # talker -> lista (prn, elev, azim, snr)
+        self.sats_in_view = {}       # talker -> list of (prn, elevation, azimuth, SNR)
         self._gsv_build = {}
         self.sentence_counts = {}
         self.bad_checksums = 0
         self.last_raw = deque(maxlen=5)
 
     def feed(self, line: str) -> bool:
-        """Przetwarza jedną linię NMEA. Zwraca True, gdy zdanie było poprawne."""
+        """Processes one line of NMEA. Returns True if the sentence was valid."""
         line = line.strip()
         if not line:
             return False
@@ -127,7 +127,7 @@ class GpsState:
         self.date = f[9] or self.date
 
     def _on_GLL(self, f, talker):
-        pass  # pozycja jest już z GGA/RMC; zdanie liczone tylko w statystykach
+        pass  # position already comes from GGA/RMC; the sentence is only counted in statistics
 
     def _on_VTG(self, f, talker):
         self.course = _f(f[1]) if _f(f[1]) is not None else self.course
@@ -160,22 +160,22 @@ class GpsState:
         else:
             fix = "-"
         quality = FIX_QUALITY.get(self.quality, "-") if self.quality is not None else "-"
-        status = "BRAK DANYCH" if no_data else ("FIX OK" if self.valid else "szukam satelitów...")
+        status = "NO DATA" if no_data else ("FIX OK" if self.valid else "searching for satellites...")
         total_view = sum(len(s) for s in self.sats_in_view.values())
 
         lines = [
             f"=== GPS NEO-6M  |  {port_info}  |  {status} ===",
-            f"Czas:        {_fmt_time(self.time)}    Data: {_fmt_date(self.date)}",
-            f"Fix:         {fix}    Jakość: {quality}    Ważny (RMC): "
-            f"{'tak' if self.valid else 'nie' if self.valid is not None else '-'}",
-            f"Szerokość:   {v(self.lat, '{:.6f}', '°')}",
-            f"Długość:     {v(self.lon, '{:.6f}', '°')}",
-            f"Wysokość:    {v(self.alt, '{:.1f}', ' m')}    Geoida: {v(self.geoid, '{:.1f}', ' m')}",
-            f"Prędkość:    {v(self.speed_kmh, '{:.1f}', ' km/h')}    Kurs: {v(self.course, '{:.1f}', '°')}",
-            f"Satelity:    użyte {v(self.sats_used)}, widoczne {total_view}",
+            f"Time:        {_fmt_time(self.time)}    Date: {_fmt_date(self.date)}",
+            f"Fix:         {fix}    Quality: {quality}    Valid (RMC): "
+            f"{'yes' if self.valid else 'no' if self.valid is not None else '-'}",
+            f"Latitude:    {v(self.lat, '{:.6f}', '°')}",
+            f"Longitude:   {v(self.lon, '{:.6f}', '°')}",
+            f"Altitude:    {v(self.alt, '{:.1f}', ' m')}    Geoid: {v(self.geoid, '{:.1f}', ' m')}",
+            f"Speed:       {v(self.speed_kmh, '{:.1f}', ' km/h')}    Course: {v(self.course, '{:.1f}', '°')}",
+            f"Sats:        used {v(self.sats_used)}, in view {total_view}",
             f"DOP:         HDOP {v(self.hdop)}  VDOP {v(self.vdop)}  PDOP {v(self.pdop)}",
             "",
-            "Satelity w zasięgu (PRN elev azym SNR):",
+            "Satellites in range (PRN elev azim SNR):",
         ]
         all_sats = [(t, s) for t, lst in sorted(self.sats_in_view.items()) for s in lst]
         sat_cells = [f"{t}{p:>3} {v(e):>3}° {v(a):>3}° {v(s):>3}dB" for t, (p, e, a, s) in all_sats]
@@ -186,40 +186,40 @@ class GpsState:
         for r in rows:
             lines.append("  " + "".join(c.ljust(col_w) for c in r))
         if not sat_cells:
-            lines.append("  (brak)")
+            lines.append("  (none)")
         counts = " ".join(f"{k}:{n}" for k, n in sorted(self.sentence_counts.items()))
-        lines += ["", f"Zdania: {counts or '-'}   błędne sumy kontrolne: {self.bad_checksums}",
-                  f"Czas pracy: {int(elapsed)} s   (Ctrl+C - powrót do menu)", "Ostatnie dane:"]
+        lines += ["", f"Sentences: {counts or '-'}   bad checksums: {self.bad_checksums}",
+                  f"Uptime: {int(elapsed)} s   (Ctrl+C - back to the menu)", "Last data:"]
         lines += ["  " + l for l in self.last_raw]
         if no_data:
             lines += ["",
-                      "! Brak danych z portu. Sprawdź: TXD GPS -> GPIO15 (pin 10), zasilanie,",
-                      "  wyłączoną konsolę szeregową i obecność /dev/serial0 (ttyAMA0)."]
+                      "! No data from the port. Check: GPS TXD -> GPIO15 (pin 10), power supply,",
+                      "  disabled serial console and presence of /dev/serial0 (ttyAMA0)."]
         return [l[:width] for l in lines]
 
 
-# ---------------------------------------------------------------- uruchomienie
+# ---------------------------------------------------------------- startup
 def run(ctx):
     try:
         import serial
     except ImportError:
-        print("Brak biblioteki pyserial. Zainstaluj: pip install pyserial", file=sys.stderr)
+        print("pyserial library not found. Install with: pip install pyserial", file=sys.stderr)
         return 1
 
     try:
         cfg_path = find_config(ctx.script_dir, ctx.base_dir)
         uart = load_config(cfg_path).get_uart(GPS_NAME)
     except ConfigError as e:
-        print(f"Błąd konfiguracji: {e}", file=sys.stderr)
+        print(f"Configuration error: {e}", file=sys.stderr)
         return 2
 
-    print(f"Konfiguracja: {cfg_path}")
-    print(f"Otwieram {uart.port} @ {uart.baudrate} bps...")
+    print(f"Configuration: {cfg_path}")
+    print(f"Opening {uart.port} @ {uart.baudrate} bps...")
     try:
         ser = serial.Serial(uart.port, uart.baudrate, timeout=uart.timeout)
     except (serial.SerialException, OSError) as e:
-        print(f"Nie można otworzyć portu {uart.port}: {e}", file=sys.stderr)
-        print("Sprawdź uprawnienia (grupa dialout), enable_uart=1 i wyłączoną konsolę szeregową.",
+        print(f"Cannot open port {uart.port}: {e}", file=sys.stderr)
+        print("Check permissions (dialout group), enable_uart=1 and a disabled serial console.",
               file=sys.stderr)
         return 1
 
@@ -234,7 +234,7 @@ def run(ctx):
             try:
                 raw = ser.readline()
             except (serial.SerialException, OSError) as e:
-                print(f"\nBłąd odczytu z portu: {e}", file=sys.stderr)
+                print(f"\nError reading from the port: {e}", file=sys.stderr)
                 return 1
             now = time.monotonic()
             if raw:
@@ -249,7 +249,7 @@ def run(ctx):
                 sys.stdout.write("\x1b[H" + "".join(l + "\x1b[K\n" for l in lines) + "\x1b[J")
                 sys.stdout.flush()
     except KeyboardInterrupt:
-        print("\nPrzerwano.")
+        print("\nInterrupted.")
         return 0
     finally:
         ser.close()

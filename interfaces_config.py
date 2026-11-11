@@ -1,4 +1,4 @@
-"""Wczytywanie interfaces_config.xml (urządzenia SPI i UART). Tylko biblioteka standardowa."""
+"""Loading of interfaces_config.xml (SPI and UART devices). Standard library only."""
 from __future__ import annotations
 
 import xml.etree.ElementTree as ET
@@ -9,18 +9,18 @@ CONFIG_FILENAME = "interfaces_config.xml"
 
 
 class ConfigError(Exception):
-    """Błąd w pliku konfiguracji interfejsów."""
+    """Error in the interface configuration file."""
 
 
 @dataclass(frozen=True)
 class SpiDevice:
     name: str
-    bus: int                 # numer magistrali SPI (1 = SPI1) -> /dev/spidev<bus>.<device>
-    device: int              # numer CE (chip select)
+    bus: int                 # SPI bus number (1 = SPI1) -> /dev/spidev<bus>.<device>
+    device: int              # chip-select (CE) number
     speed_hz: int = 1_000_000
     mode: int = 0
     type: str = ""
-    pins: dict = field(default_factory=dict)   # np. {"RST": 22} (numeracja BCM)
+    pins: dict = field(default_factory=dict)   # e.g. {"RST": 22} (BCM numbering)
 
     @property
     def dev_path(self) -> str:
@@ -45,25 +45,25 @@ class InterfacesConfig:
         try:
             return self.spi[name]
         except KeyError:
-            raise ConfigError(f"Brak urządzenia SPI '{name}' w konfiguracji") from None
+            raise ConfigError(f"No SPI device '{name}' in the configuration") from None
 
     def get_uart(self, name: str) -> UartDevice:
         try:
             return self.uart[name]
         except KeyError:
-            raise ConfigError(f"Brak urządzenia UART '{name}' w konfiguracji") from None
+            raise ConfigError(f"No UART device '{name}' in the configuration") from None
 
 
 def _attr(el, name, conv=str, default=None, required=True):
     raw = el.get(name)
     if raw is None or raw.strip() == "":
         if required and default is None:
-            raise ConfigError(f"<{el.tag}>: brak wymaganego atrybutu '{name}'")
+            raise ConfigError(f"<{el.tag}>: missing required attribute '{name}'")
         return default
     try:
         return conv(raw.strip())
     except ValueError:
-        raise ConfigError(f"<{el.tag}>: nieprawidłowa wartość atrybutu {name}='{raw}'") from None
+        raise ConfigError(f"<{el.tag}>: invalid value for attribute {name}='{raw}'") from None
 
 
 def load_config(path) -> InterfacesConfig:
@@ -71,27 +71,27 @@ def load_config(path) -> InterfacesConfig:
     try:
         root = ET.parse(path).getroot()
     except FileNotFoundError:
-        raise ConfigError(f"Nie znaleziono pliku konfiguracji: {path}") from None
+        raise ConfigError(f"Configuration file not found: {path}") from None
     except ET.ParseError as e:
-        raise ConfigError(f"Błąd składni XML w {path.name}: {e}") from None
+        raise ConfigError(f"XML syntax error in {path.name}: {e}") from None
     if root.tag != "interfaces":
-        raise ConfigError("Element główny musi mieć nazwę <interfaces>")
+        raise ConfigError("The root element must be named <interfaces>")
 
     spi, uart, used_pins, used_cs = {}, {}, {}, {}
     for el in root:
         if el.tag == "spi_device":
             name = _attr(el, "name")
             if name in spi:
-                raise ConfigError(f"Zduplikowana nazwa urządzenia SPI: {name}")
+                raise ConfigError(f"Duplicated SPI device name: {name}")
             pins = {}
             for p in el:
                 if p.tag != "pin":
-                    raise ConfigError(f"<spi_device {name}>: nieznany element <{p.tag}>")
+                    raise ConfigError(f"<spi_device {name}>: unknown element <{p.tag}>")
                 pname, gpio = _attr(p, "name"), _attr(p, "gpio", int)
                 if pname in pins:
-                    raise ConfigError(f"{name}: zduplikowany pin '{pname}'")
+                    raise ConfigError(f"{name}: duplicated pin '{pname}'")
                 if gpio in used_pins:
-                    raise ConfigError(f"GPIO{gpio} użyte dwukrotnie: {used_pins[gpio]} i {name}.{pname}")
+                    raise ConfigError(f"GPIO{gpio} used twice: {used_pins[gpio]} and {name}.{pname}")
                 used_pins[gpio] = f"{name}.{pname}"
                 pins[pname] = gpio
             dev = SpiDevice(
@@ -101,26 +101,26 @@ def load_config(path) -> InterfacesConfig:
                 type=_attr(el, "type", str, "", required=False), pins=pins)
             key = (dev.bus, dev.device)
             if key in used_cs:
-                raise ConfigError(f"{dev.dev_path} przypisane dwukrotnie: {used_cs[key]} i {name}")
+                raise ConfigError(f"{dev.dev_path} assigned twice: {used_cs[key]} and {name}")
             used_cs[key] = name
             spi[name] = dev
         elif el.tag == "uart_device":
             name = _attr(el, "name")
             if name in uart:
-                raise ConfigError(f"Zduplikowana nazwa urządzenia UART: {name}")
+                raise ConfigError(f"Duplicated UART device name: {name}")
             uart[name] = UartDevice(
                 name=name, port=_attr(el, "port"), baudrate=_attr(el, "baudrate", int),
                 timeout=_attr(el, "timeout", float, 0.5, required=False),
                 type=_attr(el, "type", str, "", required=False))
         else:
-            raise ConfigError(f"Nieznany element <{el.tag}> w konfiguracji")
+            raise ConfigError(f"Unknown element <{el.tag}> in the configuration")
     return InterfacesConfig(spi=spi, uart=uart)
 
 
 def find_config(*dirs) -> Path:
-    """Zwraca pierwszy istniejący plik interfaces_config.xml z podanych katalogów."""
+    """Returns the first existing interfaces_config.xml from the given directories."""
     for d in dirs:
         p = Path(d) / CONFIG_FILENAME
         if p.is_file():
             return p
-    raise ConfigError(f"Nie znaleziono {CONFIG_FILENAME} w: " + ", ".join(str(d) for d in dirs))
+    raise ConfigError(f"{CONFIG_FILENAME} not found in: " + ", ".join(str(d) for d in dirs))
